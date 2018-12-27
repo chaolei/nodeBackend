@@ -84,8 +84,15 @@ let douzizhu = {
         let pos = data.pos;
         var npos = pos == 2? 0 : pos+1;
 
+        if(data.isComplete){
+            npos = -1;
+        }
+
         cRoom.map(cctx=>{
-            cctx.websocket.send(JSON.stringify({method:'postCards',data:{pos: pos, nextPost: npos, cardType: data.cardType, cards: data.cards}}));           
+            cctx.websocket.send(JSON.stringify({method:'postCards',data:{pos: pos, nextPost: npos, cardType: data.cardType, cards: data.cards, keyCard: data.keyCard}}));           
+            if(data.isComplete){
+                cctx.websocket.send(JSON.stringify({method:'gameOver',data:{isDiZhu: data.isDiZhu}}));
+            }
         });
 
         //cRoom[pos].websocket.send(JSON.stringify({method:'postCardFlag',data:{pos: pos}}));//出牌标志位
