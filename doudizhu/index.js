@@ -1,6 +1,7 @@
 
 let douzizhu = {
     rooms:{},
+    inGameRooms:[],
     joinRoom: function(roomId, ctx){
         let flag = false; 
         let rooms = this.rooms;
@@ -8,10 +9,12 @@ let douzizhu = {
             if(rooms['room'+roomId].length == 3) return flag;
             flag = true;
             rooms['room'+roomId].push(ctx);
+            ctx.roomId = roomId;
         }else{
             flag = true;
             rooms['room'+roomId] = [];
             rooms['room'+roomId].push(ctx);
+            ctx.roomId = roomId;
         }
         return flag;
     },
@@ -57,15 +60,23 @@ let douzizhu = {
             return ;
         }
         let cRoom = this.rooms['room'+roomId];
-        cRoom.map(cctx=>{
+        cRoom.map((cctx, index)=>{            
             if(cctx != ctx){
-                cctx.websocket.send(JSON.stringify({method:'joinRoom',data:{}}));
-            }else{
-                for(let i=0;i<cRoom.length-1;i++){//自己进房间后，把已经再的玩家发给自己
+                try {
                     cctx.websocket.send(JSON.stringify({method:'joinRoom',data:{}}));
-                } 
+                } catch (error) {
+                    cRoom.splice(index, 1);
+                }                
+            }else{                
+                try {
+                    for(let i=0;i<cRoom.length-1;i++){//自己进房间后，把已经再的玩家发给自己
+                        cctx.websocket.send(JSON.stringify({method:'joinRoom',data:{}}));
+                    } 
+                } catch (error) {
+                }                
             }
         });
+        this.inGameRooms.push(roomId);
         if(cRoom.length == 3){
             let cardsList = douzizhu.getCardsList(),i=0;
             let dFlag = Math.floor(Math.random() * 3);
@@ -82,7 +93,7 @@ let douzizhu = {
         let roomId = data.room;
         let cRoom = this.rooms['room'+roomId];
         let pos = data.pos;
-        var npos = pos == 2? 0 : pos+1;
+        let npos = pos == 2? 0 : pos+1;
 
         if(data.isComplete){
             npos = -1;
@@ -99,7 +110,7 @@ let douzizhu = {
     },
     jiaoDiZhu: function(data, ctx){
         let cRoom = this.rooms['room'+data.room];
-        var pos = data.pos;
+        let pos = data.pos;
 
         cRoom.map(cctx=>{
             cctx.websocket.send(JSON.stringify({method:'showDiZhu',data:{dpos: pos}}));   //展示谁时地主
@@ -109,7 +120,7 @@ let douzizhu = {
     },
     bujiaoDiZhu: function(data, ctx){
         let cRoom = this.rooms['room'+data.room];
-        var pos = data.pos;
+        let pos = data.pos;
         if(pos == 2){
             pos = 0;
         }else{
@@ -119,13 +130,27 @@ let douzizhu = {
         cRoom[pos].websocket.send(JSON.stringify({method:'showJiaoDiZhu',data:{pos: pos}}));//显示叫地主
     },
     handleMessgae: function(mes, ctx){
-        var data = JSON.parse(mes);
+        let data = JSON.parse(mes);
         switch(data.method){
             case 'joinRoom' : douzizhu.handleJoinRoom(data.data, ctx); break;
             case 'postCards': douzizhu.handlePostCards(data.data, ctx); break;
             case 'jiaoDiZhu': douzizhu.jiaoDiZhu(data.data, ctx); break;
             case 'bujiaoDiZhu': douzizhu.bujiaoDiZhu(data.data, ctx); break;
         }
+    },
+    destoryRoom: function(roomId, ctx){        
+        let room = this.rooms['room'+roomId];
+        room.map(cctx => {
+            if(cctx != ctx){
+                try {
+                    cctx.websocket.send(JSON.stringify({method:'destoryRoom',data:{}}));   //通知房间解散，刷新页面重进
+                } catch (error) {
+                     
+                }
+               
+            }
+        })
+        room = null;
     }
 }
 
